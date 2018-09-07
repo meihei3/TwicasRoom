@@ -34,6 +34,8 @@ def hello_world():
 
 @app.route('/api')
 def channel():
+    if request.args.get('channel') is None:
+        return redirect("/")
     try:
         n = int(request.args.get('channel'))
         n = n if 1 <= n <= 6 else 1
@@ -43,8 +45,8 @@ def channel():
         raise
     if n == 6:
         return "6"
-    r = get_recommend()
-    return redirect(r["movies"][n-1]["movie"]["hls_url"])
+    data = get_recommend()
+    return redirect(data["movies"][n-1]["movie"]["hls_url"])
 
 
 if __name__ == '__main__':
