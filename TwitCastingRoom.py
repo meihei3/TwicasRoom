@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
-from flask import Flask, request, redirect
+from flask import Flask, request, redirect, render_template
+from werkzeug.contrib.cache import SimpleCache
 import requests
 import json
 
 from config import BASE64_ENCODED_STRING
 
 app = Flask(__name__)
+cache = SimpleCache()
 
 
 BASE_URL = "https://apiv2.twitcasting.tv"
@@ -21,15 +23,19 @@ HEADER = {"X-Api-Version": "2.0", "Authorization": "Basic %s" % BASE64_ENCODED_S
 
 
 def get_recommend():
-    res = requests.get(SEARCH_URL+"?limit=5&type=recommend&lang=ja", headers=HEADER)
-    if res.status_code == 200:
-        return json.loads(res.text)
-    return "通信エラー"
+    rv = cache.get('data')
+    if rv is None:
+        res = requests.get(SEARCH_URL+"?limit=6&type=recommend&lang=ja", headers=HEADER)
+        if res.status_code != 200:
+            return "通信エラー"
+        rv = json.loads(res.text)
+        cache.set('data', rv, timeout=1 * 60)
+    return rv
 
 
 @app.route('/')
 def hello_world():
-    return 'Hello World!'
+    return render_template("index.html")
 
 
 @app.route('/api')
@@ -50,5 +56,5 @@ def channel():
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=False, host='0.0.0.0')
 
