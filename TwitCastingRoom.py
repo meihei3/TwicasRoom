@@ -75,6 +75,28 @@ def channel():
     return redirect(data["movies"][n-1]["movie"]["hls_url"])
 
 
+@app.route('/hls_test')
+def test_hls():
+    un = cun = request.cookies.get('username')
+    print(un)
+    if un is None:
+        un = "app1e_s"
+    r = requests.get('http://twitcasting.tv/%s/metastream.m3u8/?video=1' % un)
+    print(datetime.now())
+    if r.content:
+        u = r.content.decode('utf-8').split('\n')
+        nr = requests.get(u[4])
+        print(u)
+        print(nr.status_code)
+        print(nr.content.decode('utf-8').split('\n'))
+    else:
+        print("no m3u8")
+    resp = Response(r.content.decode('utf-8'), mimetype="application/vnd.apple.mpegurl")
+    if cun is None:
+        resp.set_cookie('username', "app1e_s")
+    return resp
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
 
