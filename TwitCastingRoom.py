@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-
-from flask import Flask, request, redirect, render_template
+from datetime import datetime
+from flask import Flask, request, redirect, render_template, Response
 from werkzeug.contrib.cache import SimpleCache
 import requests
 import json
@@ -12,9 +12,7 @@ cache = SimpleCache()
 
 
 BASE_URL = "https://apiv2.twitcasting.tv"
-OAUTH2_URL = BASE_URL + "/oauth2"
-CATEGORY_URL = BASE_URL + "/categories"
-COMMENT_URL = BASE_URL + "/movies/{movie_id}/comments"
+MOVIE_URL = BASE_URL + "/movies/{movie_id}"
 USER_URL = BASE_URL + "/users/{user_id}"
 SEARCH_URL = BASE_URL + "/search/lives"
 
@@ -31,6 +29,28 @@ def get_recommend():
         rv = json.loads(res.text)
         cache.set('data', rv, timeout=1 * 60)
     return rv
+
+
+def get_user(screen_id):
+    res = requests.get(USER_URL.format(user_id=screen_id), headers=HEADER)
+    if res.status_code == 200:
+        return json.loads(res.text)
+    return {"error": {"message": "status error"}}
+
+
+def is_user_living(user):
+    return user["user"]["is_live"]
+
+
+def is_movie_living(movie):
+    return movie["movie"]["is_live"]
+
+
+def last_movie_hls_url(user):
+    last_movie_id = user["user"]["last_movie_id"]
+    res = requests.get(MOVIE_URL.format(movie_id=last_movie_id))
+    if res.status_code == 200:
+        return json.loads(res.text)["movie"]["hls_url"]
 
 
 @app.route('/')
@@ -56,5 +76,5 @@ def channel():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0')
 
