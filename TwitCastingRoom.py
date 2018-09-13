@@ -20,15 +20,11 @@ SEARCH_URL = BASE_URL + "/search/lives"
 HEADER = {"X-Api-Version": "2.0", "Authorization": "Basic %s" % BASE64_ENCODED_STRING.decode("utf-8")}
 
 
-def get_recommend():
-    rv = cache.get('data')
-    if rv is None:
-        res = requests.get(SEARCH_URL+"?limit=6&type=recommend&lang=ja", headers=HEADER)
-        if res.status_code != 200:
-            return "通信エラー"
-        rv = json.loads(res.text)
-        cache.set('data', rv, timeout=1 * 60)
-    return rv
+def get_recommend(n=10):
+    res = requests.get(SEARCH_URL+"?limit={}&type=recommend&lang=ja".format(n), headers=HEADER)
+    if res.status_code == 200:
+        return json.loads(res.text)["movies"]
+    return {"error": {"message": "status error"}}
 
 
 def get_user(screen_id):
@@ -46,11 +42,45 @@ def is_movie_living(movie):
     return movie["movie"]["is_live"]
 
 
+def get_movie(movie_id):
+    res = requests.get(MOVIE_URL.format(movie_id=movie_id))
+    if res.status_code == 200:
+        return json.loads(res.text)
+    return {"error": {"message": "status error"}}
+
+
+def get_channel_movie_id(ch_id):
+    # dbからchannel(index)のでーたを取る。なければNone
+    return None
+
+
+def is_watching(movie_id):
+    # dbにchannelとして存在するか
+    return False
+
+
+def set_watching(ch_id, movie_id, url):
+    # dbにchannel,movie_id,urlを保存
+    pass
+
+
 def last_movie_hls_url(user):
     last_movie_id = user["user"]["last_movie_id"]
-    res = requests.get(MOVIE_URL.format(movie_id=last_movie_id))
-    if res.status_code == 200:
-        return json.loads(res.text)["movie"]["hls_url"]
+    return get_movie(last_movie_id)["movie"]["hls_url"]
+
+
+def get_hls_url(ch_id):
+    # ch_idがdbにあるか調べる
+    movie_id = None
+    if movie_id is not None:
+        movie = get_movie(movie_id)
+        if is_movie_living(movie):
+            return movie["movie"]["hls_url"]
+    for movie in get_recommend():
+        if not is_watching(movie["movie"]["id"]):
+            set_watching(ch_id, movie["movie"]["id"], movie["movie"]["link"])
+            return movie["movie"]["hls_url"]
+    raise ValueError
 
 
 @app.route('/')
@@ -71,8 +101,7 @@ def channel():
         raise
     if n == 6:
         return "6"
-    data = get_recommend()
-    return redirect(data["movies"][n-1]["movie"]["hls_url"])
+    return redirect(get_hls_url(n))
 
 
 @app.route('/hls_test')
