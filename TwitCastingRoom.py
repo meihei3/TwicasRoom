@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime
+
+import os
 from flask import Flask, request, redirect, render_template, Response
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.contrib.cache import SimpleCache
 import requests
 import json
@@ -9,6 +12,22 @@ from config import BASE64_ENCODED_STRING
 
 app = Flask(__name__)
 cache = SimpleCache()
+
+db_uri = "sqlite:///" + os.path.join(app.root_path, 'flask_test.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+db = SQLAlchemy(app)
+
+
+class Channel(db.Model):
+    __tablename__ = "channel"
+    id = db.Column(db.Integer, primary_key=True)
+    movie_id = db.Column(db.String(), nullable=False)
+    url = db.Column(db.String(), nullable=False)
+
+    def __init__(self, id, movie_id, url):
+        self.id = id
+        self.movie_id = movie_id
+        self.url = url
 
 
 BASE_URL = "https://apiv2.twitcasting.tv"
@@ -51,17 +70,29 @@ def get_movie(movie_id):
 
 def get_channel_movie_id(ch_id):
     # dbからchannel(index)のでーたを取る。なければNone
+    for ch in Channel.query.all():
+        if ch.id == ch_id:
+            return ch.movie_id
     return None
 
 
 def is_watching(movie_id):
     # dbにchannelとして存在するか
+    for ch in Channel.query.all():
+        if ch.movie_id == movie_id:
+            return True
     return False
 
 
 def set_watching(ch_id, movie_id, url):
     # dbにchannel,movie_id,urlを保存
-    pass
+    if ch_id in [ch.id for ch in Channel.query.all()]:
+        ch = Channel.query.filter_by(id=ch_id).first()
+        ch.movie_id = movie_id
+        ch.url = url
+    else:
+        db.session.add(Channel(ch_id, movie_id, url))
+    db.session.commit()
 
 
 def last_movie_hls_url(user):
@@ -70,8 +101,7 @@ def last_movie_hls_url(user):
 
 
 def get_hls_url(ch_id):
-    # ch_idがdbにあるか調べる
-    movie_id = None
+    movie_id = get_channel_movie_id(ch_id)
     if movie_id is not None:
         movie = get_movie(movie_id)
         if is_movie_living(movie):
@@ -128,4 +158,3 @@ def test_hls():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
-
