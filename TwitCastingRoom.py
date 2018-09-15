@@ -124,13 +124,11 @@ def channel():
         return redirect("/")
     try:
         n = int(request.args.get('channel'))
-        n = n if 1 <= n <= 6 else 1
+        n = n if 1 <= n <= 5 else 1
     except TypeError:
         n = 1
     except:
         raise
-    if n == 6:
-        return "6"
     return redirect(get_hls_url(n))
 
 
