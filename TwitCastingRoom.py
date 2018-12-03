@@ -43,14 +43,14 @@ def get_recommend(n=10):
     res = requests.get(SEARCH_URL+"?limit={}&type=recommend&lang=ja".format(n), headers=HEADER)
     if res.status_code == 200:
         return json.loads(res.text)["movies"]
-    return {"error": {"message": "status error"}}
+    return res.text
 
 
 def get_user(screen_id):
     res = requests.get(USER_URL.format(user_id=screen_id), headers=HEADER)
     if res.status_code == 200:
         return json.loads(res.text)
-    return {"error": {"message": "status error"}}
+    return res.text
 
 
 def is_user_living(user):
@@ -62,10 +62,10 @@ def is_movie_living(movie):
 
 
 def get_movie(movie_id):
-    res = requests.get(MOVIE_URL.format(movie_id=movie_id))
+    res = requests.get(MOVIE_URL.format(movie_id=movie_id), headers=HEADER)
     if res.status_code == 200:
         return json.loads(res.text)
-    return {"error": {"message": "status error"}}
+    return res.text
 
 
 def get_channel_movie_id(ch_id):
@@ -104,9 +104,12 @@ def get_hls_url(ch_id):
     movie_id = get_channel_movie_id(ch_id)
     if movie_id is not None:
         movie = get_movie(movie_id)
-        if is_movie_living(movie):
-            return movie["movie"]["hls_url"]
+        print(movie)
+        if "error" not in movie:
+            if is_movie_living(movie):
+                return movie["movie"]["hls_url"]
     for movie in get_recommend():
+
         if not is_watching(movie["movie"]["id"]):
             set_watching(ch_id, movie["movie"]["id"], movie["movie"]["link"])
             return movie["movie"]["hls_url"]
@@ -124,12 +127,16 @@ def channel():
         return redirect("/")
     try:
         n = int(request.args.get('channel'))
-        n = n if 1 <= n <= 5 else 1
+        n = n if 1 <= n <= 6 else 1
     except TypeError:
         n = 1
     except:
         raise
-    return redirect(get_hls_url(n))
+    url = get_hls_url(n) if n != 6 else "http://twitcasting.tv/app1e_s/metastream.m3u8/?video=1"
+    resp = requests.get(url)
+    print(resp.text.split('\n'))
+    print()
+    return Response(resp.content.decode('utf-8'), mimetype="application/vnd.apple.mpegurl")
 
 
 @app.route('/hls_test')
